@@ -136,6 +136,7 @@ public class AuthController {
         }
         return ResponseEntity.status(401).body(null);
     }
+
     @PostMapping("/generate-qr")
     public ResponseEntity<Map<String, String>> generateQR(@RequestBody Map<String, String> request) {
         String email = request.get("email");
