@@ -34,13 +34,13 @@ public class AuthController {
         String email;
         String challenge;
         long expiryTime;
-        String primaryDeviceToken; // Add this field
+        String primaryDeviceToken;
 
         public QRSession() {
             this.email = null;
             this.challenge = null;
             this.expiryTime = 0;
-            this.primaryDeviceToken = null; // Initialize it
+            this.primaryDeviceToken = null;
         }
     }
 
@@ -76,10 +76,10 @@ public class AuthController {
         User user = userRepository.findById(email).orElse(null);
         if (user == null) return ResponseEntity.status(404).body(null);
 
-        // Reject non-QR login for mobile devices
-        if ("Mobile".equalsIgnoreCase(deviceName)) {
+        // Allow mobile devices to log in normally, but reject laptops
+        if ("Laptop".equalsIgnoreCase(deviceName)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Collections.singletonMap("error", "Mobile devices must use QR login"));
+                    .body(Collections.singletonMap("error", "Laptops must use QR login"));
         }
 
         String challenge = String.valueOf(new SecureRandom().nextInt(10000));
@@ -101,10 +101,10 @@ public class AuthController {
         User user = userRepository.findById(email).orElse(null);
         if (user == null) return ResponseEntity.status(404).body(null);
 
-        // Reject non-QR login for mobile devices
-        if ("Mobile".equalsIgnoreCase(deviceName)) {
+        // Allow mobile devices to verify normally, but reject laptops
+        if ("Laptop".equalsIgnoreCase(deviceName)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Collections.singletonMap("error", "Mobile devices must use QR login"));
+                    .body(Collections.singletonMap("error", "Laptops must use QR login"));
         }
 
         BigInteger sharedSecret = CryptoUtil.computeSharedSecret(
@@ -126,7 +126,7 @@ public class AuthController {
             device.setDeviceName(deviceName);
             device.setSessionToken(jwt);
             device.setLastActive(System.currentTimeMillis());
-            device.setPrimary(true);
+            device.setPrimary("Mobile".equalsIgnoreCase(deviceName)); // Mobile is primary
             deviceRepository.save(device);
 
             Map<String, String> response = new HashMap<>();
@@ -139,18 +139,17 @@ public class AuthController {
     @PostMapping("/generate-qr")
     public ResponseEntity<Map<String, String>> generateQR(@RequestBody Map<String, String> request) {
         String email = request.get("email");
-        String token = request.get("token"); // Optional token
+        String token = request.get("token");
 
-        // If no token is provided, generate a QR for unauthenticated device
         if (token == null || token.isEmpty()) {
             String qrToken = UUID.randomUUID().toString();
             String challenge = String.valueOf(new SecureRandom().nextInt(10000));
 
             QRSession session = new QRSession();
-            session.email = email; // Can be empty or null for now
+            session.email = email;
             session.challenge = challenge;
-            session.expiryTime = System.currentTimeMillis() + 2 * 60 * 1000; // 2 minutes
-            session.primaryDeviceToken = null; // Will be set when mobile authorizes
+            session.expiryTime = System.currentTimeMillis() + 2 * 60 * 1000;
+            session.primaryDeviceToken = null;
 
             qrSessionStore.put(qrToken, session);
 
@@ -159,7 +158,6 @@ public class AuthController {
             return ResponseEntity.ok(response);
         }
 
-        // If token is provided, validate it (for already logged-in devices)
         if (!JwtUtil.validateToken(token, email)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
         }
@@ -167,14 +165,13 @@ public class AuthController {
         User user = userRepository.findById(email).orElse(null);
         if (user == null) return ResponseEntity.status(404).body(null);
 
-        // Find the primary mobile device (already logged in)
         List<Device> devices = deviceRepository.findByUserAndPrimary(user, true);
         if (devices.isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Collections.singletonMap("error", "No primary device found."));
         }
 
-        Device primaryDevice = devices.get(0); // Assume first primary device is mobile
+        Device primaryDevice = devices.get(0);
         String primaryDeviceToken = primaryDevice.getSessionToken();
 
         String qrToken = UUID.randomUUID().toString();
@@ -183,8 +180,8 @@ public class AuthController {
         QRSession session = new QRSession();
         session.email = email;
         session.challenge = challenge;
-        session.expiryTime = System.currentTimeMillis() + 2 * 60 * 1000; // 2 minutes
-        session.primaryDeviceToken = primaryDeviceToken; // Set the primary device's token
+        session.expiryTime = System.currentTimeMillis() + 2 * 60 * 1000;
+        session.primaryDeviceToken = primaryDeviceToken;
 
         qrSessionStore.put(qrToken, session);
 
