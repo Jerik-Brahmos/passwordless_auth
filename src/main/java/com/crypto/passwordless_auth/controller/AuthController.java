@@ -35,12 +35,16 @@ public class AuthController {
         String challenge;
         long expiryTime;
         String primaryDeviceToken;
+        String laptopToken; // New field
+        String laptopDeviceId; // New field
 
         public QRSession() {
             this.email = null;
             this.challenge = null;
             this.expiryTime = 0;
             this.primaryDeviceToken = null;
+            this.laptopToken = null;
+            this.laptopDeviceId = null;
         }
     }
 
@@ -259,7 +263,7 @@ public class AuthController {
     @PostMapping("/qr-verify")
     public ResponseEntity<Map<String, String>> verifyQRFromMobile(@RequestBody Map<String, String> request) {
         String qrToken = request.get("qrToken");
-        String mobileToken = request.get("mobileToken"); // Token from mobile
+        String mobileToken = request.get("mobileToken");
 
         QRSession session = qrSessionStore.get(qrToken);
         if (session == null || System.currentTimeMillis() > session.expiryTime) {
@@ -267,8 +271,7 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
         }
 
-        // Validate mobile token to get email
-        String email = JwtUtil.extractEmail(mobileToken); // Assume JwtUtil has this method
+        String email = JwtUtil.extractEmail(mobileToken);
         if (email == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
         }
@@ -276,25 +279,45 @@ public class AuthController {
         User user = userRepository.findById(email).orElse(null);
         if (user == null) return ResponseEntity.status(404).body(null);
 
-        // Link the mobile's user to the QR session
         session.email = email;
         session.primaryDeviceToken = mobileToken;
 
-        // Generate token for laptop
         String laptopJwt = JwtUtil.generateToken(email);
         Device laptopDevice = new Device();
         laptopDevice.setUser(user);
         laptopDevice.setDeviceName("Laptop");
         laptopDevice.setSessionToken(laptopJwt);
         laptopDevice.setLastActive(System.currentTimeMillis());
-        laptopDevice.setPrimary(false); // Laptop is secondary
+        laptopDevice.setPrimary(false);
         deviceRepository.save(laptopDevice);
 
-        qrSessionStore.remove(qrToken);
+        // Store the token and deviceId in the session for polling
+        session.laptopToken = laptopJwt;
+        session.laptopDeviceId = laptopDevice.getDeviceId().toString();
 
         Map<String, String> response = new HashMap<>();
         response.put("token", laptopJwt);
         response.put("deviceId", laptopDevice.getDeviceId().toString());
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/check-qr-status")
+    public ResponseEntity<Map<String, String>> checkQRStatus(@RequestParam String qrToken) {
+        QRSession session = qrSessionStore.get(qrToken);
+        if (session == null || System.currentTimeMillis() > session.expiryTime) {
+            qrSessionStore.remove(qrToken);
+            return ResponseEntity.ok(Collections.singletonMap("status", "expired"));
+        }
+
+        if (session.laptopToken != null && session.laptopDeviceId != null) {
+            Map<String, String> response = new HashMap<>();
+            response.put("status", "authenticated");
+            response.put("token", session.laptopToken);
+            response.put("deviceId", session.laptopDeviceId);
+            qrSessionStore.remove(qrToken); // Clean up after successful login
+            return ResponseEntity.ok(response);
+        }
+
+        return ResponseEntity.ok(Collections.singletonMap("status", "pending"));
     }
 }
