@@ -17,7 +17,10 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = "http://localhost:3000")
+@CrossOrigin(origins = {
+        "http://localhost:3000",
+        "https://passwordless-auth-wheat.vercel.app"
+})
 public class AuthController {
     @Autowired
     private UserRepository userRepository;
