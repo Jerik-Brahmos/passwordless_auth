@@ -8,7 +8,6 @@ import com.crypto.passwordless_auth.util.CryptoUtil;
 import com.crypto.passwordless_auth.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,7 +17,7 @@ import org.slf4j.LoggerFactory;
 import javax.crypto.SecretKey;
 import java.security.SecureRandom;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -27,24 +26,24 @@ public class AuthController {
 
     @Autowired private UserRepository userRepository;
     @Autowired private DeviceRepository deviceRepository;
-    @Autowired private RedisTemplate<String, QRSession> redisTemplate;
     @Autowired private Environment env;
 
     private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
     private final SecretKey aesKey = CryptoUtil.generateAESKey(); // For encrypting QR payloads if needed
     private static final SecureRandom secureRandom = new SecureRandom();
+    private final Map<String, QRSession> qrSessionStore = new ConcurrentHashMap<>(); // In-memory QR session store
 
-    private static class QRSession {
-        String email;
-        String challenge;
-        String signedPayload;
-        long expiryTime;
-        String mobileToken;
-        String laptopToken;
-        String laptopDeviceId;
+    public static class QRSession {
+        private String email;
+        private String challenge;
+        private String signedPayload;
+        private long expiryTime;
+        private String mobileToken;
+        private String laptopToken;
+        private String laptopDeviceId;
 
-        // Constructor for simplicity (add getters/setters as needed)
-        QRSession() {
+        // Default constructor
+        public QRSession() {
             this.email = null;
             this.challenge = null;
             this.signedPayload = null;
@@ -53,6 +52,22 @@ public class AuthController {
             this.laptopToken = null;
             this.laptopDeviceId = null;
         }
+
+        // Getters and setters
+        public String getEmail() { return email; }
+        public void setEmail(String email) { this.email = email; }
+        public String getChallenge() { return challenge; }
+        public void setChallenge(String challenge) { this.challenge = challenge; }
+        public String getSignedPayload() { return signedPayload; }
+        public void setSignedPayload(String signedPayload) { this.signedPayload = signedPayload; }
+        public long getExpiryTime() { return expiryTime; }
+        public void setExpiryTime(long expiryTime) { this.expiryTime = expiryTime; }
+        public String getMobileToken() { return mobileToken; }
+        public void setMobileToken(String mobileToken) { this.mobileToken = mobileToken; }
+        public String getLaptopToken() { return laptopToken; }
+        public void setLaptopToken(String laptopToken) { this.laptopToken = laptopToken; }
+        public String getLaptopDeviceId() { return laptopDeviceId; }
+        public void setLaptopDeviceId(String laptopDeviceId) { this.laptopDeviceId = laptopDeviceId; }
     }
 
     @PostMapping("/register")
@@ -142,12 +157,12 @@ public class AuthController {
         String signedPayload = CryptoUtil.signPayload(payload); // Server signs with its private key
 
         QRSession session = new QRSession();
-        session.email = email;
-        session.challenge = challenge;
-        session.signedPayload = signedPayload;
-        session.expiryTime = System.currentTimeMillis() + 2 * 60 * 1000;
+        session.setEmail(email);
+        session.setChallenge(challenge);
+        session.setSignedPayload(signedPayload);
+        session.setExpiryTime(System.currentTimeMillis() + 2 * 60 * 1000); // 2 minutes expiry
 
-        redisTemplate.opsForValue().set(qrToken, session, 2, TimeUnit.MINUTES);
+        qrSessionStore.put(qrToken, session);
 
         Map<String, String> response = new HashMap<>();
         response.put("qrToken", qrToken);
@@ -159,9 +174,9 @@ public class AuthController {
         String qrToken = request.get("qrToken");
         String mobileToken = request.get("mobileToken");
 
-        QRSession session = redisTemplate.opsForValue().get(qrToken);
-        if (session == null || System.currentTimeMillis() > session.expiryTime) {
-            redisTemplate.delete(qrToken);
+        QRSession session = qrSessionStore.get(qrToken);
+        if (session == null || System.currentTimeMillis() > session.getExpiryTime()) {
+            qrSessionStore.remove(qrToken);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
         }
 
@@ -180,9 +195,9 @@ public class AuthController {
         laptop.setPrimary(false);
         deviceRepository.save(laptop);
 
-        session.laptopToken = jwt;
-        session.laptopDeviceId = laptop.getDeviceId().toString();
-        redisTemplate.opsForValue().set(qrToken, session, 2, TimeUnit.MINUTES);
+        session.setLaptopToken(jwt);
+        session.setLaptopDeviceId(laptop.getDeviceId().toString());
+        qrSessionStore.put(qrToken, session); // Update session in map
 
         Map<String, String> response = new HashMap<>();
         response.put("token", jwt);
