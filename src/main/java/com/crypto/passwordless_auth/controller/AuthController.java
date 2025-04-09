@@ -204,4 +204,35 @@ public class AuthController {
         response.put("deviceId", laptop.getDeviceId().toString());
         return ResponseEntity.ok(response);
     }
+    // Added endpoint for checking email existence
+    @PostMapping("/check-email")
+    public ResponseEntity<Map<String, Boolean>> checkEmail(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        User existingUser = userRepository.findById(email).orElse(null);
+        Map<String, Boolean> response = new HashMap<>();
+        response.put("exists", existingUser != null);
+        return ResponseEntity.ok(response);
+    }
+
+    // Added endpoint for checking QR status
+    @GetMapping("/check-qr-status")
+    public ResponseEntity<Map<String, String>> checkQRStatus(@RequestParam String qrToken) {
+        QRSession session = qrSessionStore.get(qrToken);
+        if (session == null || System.currentTimeMillis() > session.getExpiryTime()) {
+            qrSessionStore.remove(qrToken);
+            return ResponseEntity.ok(Collections.singletonMap("status", "expired"));
+        }
+
+        if (session.getLaptopToken() != null && session.getLaptopDeviceId() != null) {
+            Map<String, String> response = new HashMap<>();
+            response.put("status", "authenticated");
+            response.put("token", session.getLaptopToken());
+            response.put("deviceId", session.getLaptopDeviceId());
+            qrSessionStore.remove(qrToken); // Clean up after successful login
+            return ResponseEntity.ok(response);
+        }
+
+        return ResponseEntity.ok(Collections.singletonMap("status", "pending"));
+    }
+
 }
