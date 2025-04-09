@@ -37,8 +37,14 @@ public class CryptoUtil {
             Signature sig = Signature.getInstance("SHA256withECDSA");
             sig.initVerify(pubKey);
             sig.update(data.getBytes());
-            return sig.verify(Base64.getDecoder().decode(signature));
+            boolean isValid = sig.verify(Base64.getDecoder().decode(signature));
+            if (!isValid) {
+                System.out.println("Signature invalid for data: " + data);
+            }
+            return isValid;
         } catch (Exception e) {
+            System.err.println("Verification error: " + e.getMessage());
+            e.printStackTrace();
             return false;
         }
     }

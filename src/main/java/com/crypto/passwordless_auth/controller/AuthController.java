@@ -98,10 +98,10 @@ public class AuthController {
         User user = userRepository.findById(email).orElse(null);
         if (user == null) return ResponseEntity.status(404).body(null);
 
-        // Generate a 32-byte random challenge
         byte[] challengeBytes = new byte[32];
         secureRandom.nextBytes(challengeBytes);
         String challenge = Base64.getEncoder().encodeToString(challengeBytes);
+        logger.info("Generated challenge for {}: {}", email, challenge); // Debug log
 
         user.setChallenge(challenge);
         userRepository.save(user);
@@ -114,7 +114,7 @@ public class AuthController {
     @PostMapping("/verify")
     public ResponseEntity<Map<String, String>> verify(@RequestBody Map<String, String> request) {
         String email = request.get("email");
-        String signature = request.get("signature"); // ECDSA signature
+        String signature = request.get("signature");
         String deviceName = request.getOrDefault("deviceName", "Unknown");
 
         User user = userRepository.findById(email).orElse(null);
@@ -122,6 +122,7 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
         }
 
+        logger.info("Verifying for {} - Challenge: {}, Signature: {}", email, user.getChallenge(), signature); // Debug log
         if (CryptoUtil.verifyECDSASignature(user.getPublicKey(), user.getChallenge(), signature)) {
             String jwt = JwtUtil.generateToken(email, env.getProperty("jwt.secret"));
             Device device = new Device();
