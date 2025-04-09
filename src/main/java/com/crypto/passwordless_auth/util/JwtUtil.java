@@ -1,60 +1,46 @@
 package com.crypto.passwordless_auth.util;
 
-import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 
-import java.security.Key;
 import java.util.Date;
 
 public class JwtUtil {
-
-    private static final Key key = Keys.secretKeyFor(SignatureAlgorithm.HS512); // Generate a secure key
-
-    // Method to generate a JWT token
-    public static String generateToken(String email) {
+    public static String generateToken(String email, String secret) {
         return Jwts.builder()
                 .setSubject(email)
-                .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 10)) // 10 hours
-                .signWith(key)
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60)) // 1 hour
+                .signWith(Keys.hmacShaKeyFor(secret.getBytes()), SignatureAlgorithm.HS512)
                 .compact();
     }
 
-    // Method to validate a token
-    public static boolean validateToken(String token, String email) {
-        final String extractedEmail = extractEmail(token);
-        return (extractedEmail.equals(email) && !isTokenExpired(token));
+    public static boolean validateToken(String token, String email, String secret) {
+        String extractedEmail = extractEmail(token, secret);
+        return extractedEmail != null && extractedEmail.equals(email) && !isTokenExpired(token, secret);
     }
 
-    // Method to extract email from token
-    public static String extractEmail(String token) {
+    public static String extractEmail(String token, String secret) {
         try {
-            Claims claims = Jwts.parser()
-                    .setSigningKey(getSignInKey()) // Corrected method name
+            return Jwts.parser()
+                    .setSigningKey(secret.getBytes())
                     .build()
                     .parseClaimsJws(token)
-                    .getBody();
-            return claims.getSubject();
+                    .getBody()
+                    .getSubject();
         } catch (Exception e) {
             return null;
         }
     }
 
-    // Check if token is expired
-    private static boolean isTokenExpired(String token) {
-        final Date expiration = Jwts.parser()
-                .setSigningKey(getSignInKey()) // Corrected method name
+    private static boolean isTokenExpired(String token, String secret) {
+        return Jwts.parser()
+                .setSigningKey(secret.getBytes())
                 .build()
                 .parseClaimsJws(token)
                 .getBody()
-                .getExpiration();
-        return expiration.before(new Date());
-    }
-
-    // Method to get the signing key
-    private static Key getSignInKey() { // Corrected method name
-        return key;
+                .getExpiration()
+                .before(new Date());
     }
 }

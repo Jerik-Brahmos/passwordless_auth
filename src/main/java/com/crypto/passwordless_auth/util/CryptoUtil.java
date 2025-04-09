@@ -1,44 +1,64 @@
 package com.crypto.passwordless_auth.util;
 
-import java.math.BigInteger;
-import java.security.SecureRandom;
+import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import java.security.*;
 import java.util.Base64;
 
 public class CryptoUtil {
-    private static final BigInteger P = new BigInteger(
-            "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE65381FFFFFFFFFFFFFFFF",
-            16
-    );
-    private static final BigInteger G = BigInteger.valueOf(2);
-    private static final SecureRandom random = new SecureRandom();
+    private static final KeyPair SERVER_KEY_PAIR = generateECDSAKeyPair();
+    private static final String SERVER_PUBLIC_KEY = Base64.getEncoder().encodeToString(SERVER_KEY_PAIR.getPublic().getEncoded());
 
-    public static class KeyPair {
-        public BigInteger privateKey;
-        public BigInteger publicKey;
-
-        public KeyPair() {
-            this.privateKey = new BigInteger(256, random);
-            this.publicKey = G.modPow(this.privateKey, P);
-        }
-
-        public String getPrivateKeyAsString() {
-            return privateKey.toString();
-        }
-
-        public String getPublicKeyAsString() {
-            return publicKey.toString();
+    public static KeyPair generateECDSAKeyPair() {
+        try {
+            KeyPairGenerator keyGen = KeyPairGenerator.getInstance("EC");
+            keyGen.initialize(256, new SecureRandom()); // P-256 curve
+            return keyGen.generateKeyPair();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to generate ECDSA key pair", e);
         }
     }
 
-    public static BigInteger computeSharedSecret(BigInteger privateKey, BigInteger otherPublicKey) {
-        return otherPublicKey.modPow(privateKey, P);
+    public static SecretKey generateAESKey() {
+        try {
+            KeyGenerator keyGen = KeyGenerator.getInstance("AES");
+            keyGen.init(256); // 256-bit AES
+            return keyGen.generateKey();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to generate AES key", e);
+        }
     }
 
-    public static String encryptMessage(String message, BigInteger sharedSecret) {
-        return Base64.getEncoder().encodeToString(message.getBytes());
+    public static boolean verifyECDSASignature(String publicKey, String data, String signature) {
+        try {
+            PublicKey pubKey = KeyFactory.getInstance("EC").generatePublic(
+                    new java.security.spec.X509EncodedKeySpec(Base64.getDecoder().decode(publicKey)));
+            Signature sig = Signature.getInstance("SHA256withECDSA");
+            sig.initVerify(pubKey);
+            sig.update(data.getBytes());
+            return sig.verify(Base64.getDecoder().decode(signature));
+        } catch (Exception e) {
+            return false;
+        }
     }
 
-    public static String decryptMessage(String encrypted, BigInteger sharedSecret) {
-        return new String(Base64.getDecoder().decode(encrypted));
+    public static String signPayload(String payload) {
+        try {
+            Signature sig = Signature.getInstance("SHA256withECDSA");
+            sig.initSign(SERVER_KEY_PAIR.getPrivate());
+            sig.update(payload.getBytes());
+            return Base64.getEncoder().encodeToString(sig.sign());
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to sign payload", e);
+        }
+    }
+
+    public static String encryptAES(String data, SecretKey key) throws Exception {
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.ENCRYPT_MODE, key);
+        byte[] iv = cipher.getIV();
+        byte[] encrypted = cipher.doFinal(data.getBytes());
+        return Base64.getEncoder().encodeToString(iv) + ":" + Base64.getEncoder().encodeToString(encrypted);
     }
 }
