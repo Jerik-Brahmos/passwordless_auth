@@ -235,5 +235,8 @@ public class AuthController {
 
         return ResponseEntity.ok(Collections.singletonMap("status", "pending"));
     }
-
+    @GetMapping("/health")
+    public ResponseEntity<String> healthCheck() {
+        return ResponseEntity.ok("Spring Boot app is running");
+    }
 }
