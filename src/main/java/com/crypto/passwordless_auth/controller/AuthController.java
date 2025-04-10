@@ -1,7 +1,9 @@
 package com.crypto.passwordless_auth.controller;
 
+import com.crypto.passwordless_auth.model.Note;
 import com.crypto.passwordless_auth.model.User;
 import com.crypto.passwordless_auth.model.Device;
+import com.crypto.passwordless_auth.repository.NoteRepository;
 import com.crypto.passwordless_auth.repository.UserRepository;
 import com.crypto.passwordless_auth.repository.DeviceRepository;
 import com.crypto.passwordless_auth.util.CryptoUtil;
@@ -27,6 +29,8 @@ public class AuthController {
     @Autowired private UserRepository userRepository;
     @Autowired private DeviceRepository deviceRepository;
     @Autowired private Environment env;
+    @Autowired
+    private NoteRepository noteRepository;
 
     private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
     private final SecretKey aesKey = CryptoUtil.generateAESKey(); // For encrypting QR payloads if needed
@@ -239,4 +243,79 @@ public class AuthController {
     public ResponseEntity<String> healthCheck() {
         return ResponseEntity.ok("Spring Boot app is running");
     }
+
+
+
+    // Note-related endpoints
+    @PostMapping("/notes")
+    public ResponseEntity<Note> createNote(
+            @RequestHeader("Authorization") String token,
+            @RequestBody Note note) {
+        String email = JwtUtil.extractEmail(token.replace("Bearer ", ""), env.getProperty("jwt.secret"));
+        User user = userRepository.findById(email).orElse(null);
+        if (user == null || !JwtUtil.validateToken(token.replace("Bearer ", ""), email, env.getProperty("jwt.secret"))) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        note.setUser(user);
+        Note savedNote = noteRepository.save(note);
+        return ResponseEntity.ok(savedNote);
+    }
+
+    @GetMapping("/notes")
+    public ResponseEntity<List<Note>> getNotes(
+            @RequestHeader("Authorization") String token) {
+        String email = JwtUtil.extractEmail(token.replace("Bearer ", ""), env.getProperty("jwt.secret"));
+        User user = userRepository.findById(email).orElse(null);
+        if (user == null || !JwtUtil.validateToken(token.replace("Bearer ", ""), email, env.getProperty("jwt.secret"))) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        List<Note> notes = noteRepository.findByUser(user);
+        return ResponseEntity.ok(notes);
+    }
+
+    @PutMapping("/notes/{id}")
+    public ResponseEntity<Note> updateNote(
+            @RequestHeader("Authorization") String token,
+            @PathVariable Long id,
+            @RequestBody Note updatedNote) {
+        String email = JwtUtil.extractEmail(token.replace("Bearer ", ""), env.getProperty("jwt.secret"));
+        User user = userRepository.findById(email).orElse(null);
+        if (user == null || !JwtUtil.validateToken(token.replace("Bearer ", ""), email, env.getProperty("jwt.secret"))) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        Note note = noteRepository.findById(id).orElse(null);
+        if (note == null || !note.getUser().getEmail().equals(email)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        note.setTitle(updatedNote.getTitle());
+        note.setContent(updatedNote.getContent());
+        note.setUpdatedAt(System.currentTimeMillis());
+        Note savedNote = noteRepository.save(note);
+        return ResponseEntity.ok(savedNote);
+    }
+
+    @DeleteMapping("/notes/{id}")
+    public ResponseEntity<Void> deleteNote(
+            @RequestHeader("Authorization") String token,
+            @PathVariable Long id) {
+        String email = JwtUtil.extractEmail(token.replace("Bearer ", ""), env.getProperty("jwt.secret"));
+        User user = userRepository.findById(email).orElse(null);
+        if (user == null || !JwtUtil.validateToken(token.replace("Bearer ", ""), email, env.getProperty("jwt.secret"))) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        Note note = noteRepository.findById(id).orElse(null);
+        if (note == null || !note.getUser().getEmail().equals(email)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        noteRepository.delete(note);
+        return ResponseEntity.ok().build();
+    }
+
+
 }
