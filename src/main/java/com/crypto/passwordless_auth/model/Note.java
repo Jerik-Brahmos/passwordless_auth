@@ -2,6 +2,7 @@
 package com.crypto.passwordless_auth.model;
 
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Table(name = "notes")
@@ -12,6 +13,7 @@ public class Note {
 
     @ManyToOne
     @JoinColumn(name = "user_email", nullable = false)
+    @JsonIgnore // Prevents circular reference with User
     private User user;
 
     @Column(nullable = false)
@@ -26,7 +28,6 @@ public class Note {
     @Column(name = "updated_at")
     private long updatedAt;
 
-    // Constructors
     public Note() {
         this.createdAt = System.currentTimeMillis();
         this.updatedAt = System.currentTimeMillis();
