@@ -36,7 +36,7 @@ public class AuthController {
     private final SecretKey aesKey = CryptoUtil.generateAESKey(); // For encrypting QR payloads if needed
     private static final SecureRandom secureRandom = new SecureRandom();
     private final Map<String, QRSession> qrSessionStore = new ConcurrentHashMap<>(); // In-memory QR session store
-
+    private final Map<String, String> qrTokenStore = new HashMap<>(); // In-memory storage (use Redis/database in production)
     public static class QRSession {
         private String email;
         private String challenge;
@@ -179,16 +179,35 @@ public class AuthController {
         String qrToken = request.get("qrToken");
         String mobileToken = request.get("mobileToken");
 
+        // Log incoming request for debugging
+        logger.info("Received qrToken: {}, mobileToken: {}", qrToken, mobileToken);
+
         QRSession session = qrSessionStore.get(qrToken);
         if (session == null || System.currentTimeMillis() > session.getExpiryTime()) {
             qrSessionStore.remove(qrToken);
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
+            logger.warn("QR session not found or expired for qrToken: {}", qrToken);
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Collections.singletonMap("error", "QR session expired or invalid"));
+        }
+
+        if (mobileToken == null || mobileToken.isEmpty()) {
+            logger.warn("Mobile token is null or empty for qrToken: {}", qrToken);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Collections.singletonMap("error", "Mobile token is required"));
         }
 
         String email = JwtUtil.extractEmail(mobileToken, env.getProperty("jwt.secret"));
+        if (email == null) {
+            logger.warn("Failed to extract email from mobileToken: {}", mobileToken);
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Collections.singletonMap("error", "Invalid mobile token"));
+        }
+
         User user = userRepository.findById(email).orElse(null);
         if (user == null || !JwtUtil.validateToken(mobileToken, email, env.getProperty("jwt.secret"))) {
-            return ResponseEntity.status(401).body(null);
+            logger.warn("User not found or token invalid for email: {}", email);
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Collections.singletonMap("error", "Invalid user or token"));
         }
 
         String jwt = JwtUtil.generateToken(email, env.getProperty("jwt.secret"));
@@ -204,6 +223,7 @@ public class AuthController {
         session.setLaptopDeviceId(laptop.getDeviceId().toString());
         qrSessionStore.put(qrToken, session); // Update session in map
 
+        logger.info("QR verification successful for email: {}", email);
         Map<String, String> response = new HashMap<>();
         response.put("token", jwt);
         response.put("deviceId", laptop.getDeviceId().toString());
