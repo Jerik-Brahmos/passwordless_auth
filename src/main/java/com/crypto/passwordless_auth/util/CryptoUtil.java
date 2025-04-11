@@ -1,10 +1,13 @@
+// com.crypto.passwordless_auth.util.CryptoUtil.java
 package com.crypto.passwordless_auth.util;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
 import java.security.*;
 import java.util.Base64;
+import javax.crypto.spec.SecretKeySpec;
 
 public class CryptoUtil {
     private static final KeyPair SERVER_KEY_PAIR = generateECDSAKeyPair();
@@ -28,6 +31,32 @@ public class CryptoUtil {
         } catch (Exception e) {
             throw new RuntimeException("Failed to generate AES key", e);
         }
+    }
+
+    public static String encryptAES(String data, SecretKey key) throws Exception {
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.ENCRYPT_MODE, key);
+        byte[] iv = cipher.getIV();
+        byte[] encrypted = cipher.doFinal(data.getBytes());
+        return Base64.getEncoder().encodeToString(iv) + ":" + Base64.getEncoder().encodeToString(encrypted);
+    }
+
+    public static String decryptAES(String encryptedData, SecretKey key) throws Exception {
+        String[] parts = encryptedData.split(":");
+        if (parts.length != 2) {
+            throw new IllegalArgumentException("Invalid encrypted data format");
+        }
+        byte[] iv = Base64.getDecoder().decode(parts[0]);
+        byte[] encryptedBytes = Base64.getDecoder().decode(parts[1]);
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(128, iv));
+        byte[] decrypted = cipher.doFinal(encryptedBytes);
+        return new String(decrypted);
+    }
+
+    public static SecretKey decodeAESKey(String base64Key) {
+        byte[] decodedKey = Base64.getDecoder().decode(base64Key);
+        return new SecretKeySpec(decodedKey, 0, decodedKey.length, "AES");
     }
 
     public static boolean verifyECDSASignature(String publicKey, String data, String signature) {
@@ -58,13 +87,5 @@ public class CryptoUtil {
         } catch (Exception e) {
             throw new RuntimeException("Failed to sign payload", e);
         }
-    }
-
-    public static String encryptAES(String data, SecretKey key) throws Exception {
-        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-        cipher.init(Cipher.ENCRYPT_MODE, key);
-        byte[] iv = cipher.getIV();
-        byte[] encrypted = cipher.doFinal(data.getBytes());
-        return Base64.getEncoder().encodeToString(iv) + ":" + Base64.getEncoder().encodeToString(encrypted);
     }
 }

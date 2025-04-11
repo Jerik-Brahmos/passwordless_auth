@@ -1,3 +1,4 @@
+// com.crypto.passwordless_auth.controller.AuthController.java
 package com.crypto.passwordless_auth.controller;
 
 import com.crypto.passwordless_auth.model.Note;
@@ -29,14 +30,14 @@ public class AuthController {
     @Autowired private UserRepository userRepository;
     @Autowired private DeviceRepository deviceRepository;
     @Autowired private Environment env;
-    @Autowired
-    private NoteRepository noteRepository;
+    @Autowired private NoteRepository noteRepository;
 
     private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
-    private final SecretKey aesKey = CryptoUtil.generateAESKey(); // For encrypting QR payloads if needed
+    private final SecretKey aesKey = CryptoUtil.generateAESKey(); // For legacy purposes, not used for notes
     private static final SecureRandom secureRandom = new SecureRandom();
-    private final Map<String, QRSession> qrSessionStore = new ConcurrentHashMap<>(); // In-memory QR session store
-    private final Map<String, String> qrTokenStore = new HashMap<>(); // In-memory storage (use Redis/database in production)
+    private final Map<String, QRSession> qrSessionStore = new ConcurrentHashMap<>();
+    private final Map<String, String> qrTokenStore = new HashMap<>();
+
     public static class QRSession {
         private String email;
         private String challenge;
@@ -46,7 +47,6 @@ public class AuthController {
         private String laptopToken;
         private String laptopDeviceId;
 
-        // Default constructor
         public QRSession() {
             this.email = null;
             this.challenge = null;
@@ -57,7 +57,6 @@ public class AuthController {
             this.laptopDeviceId = null;
         }
 
-        // Getters and setters
         public String getEmail() { return email; }
         public void setEmail(String email) { this.email = email; }
         public String getChallenge() { return challenge; }
@@ -77,13 +76,16 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<String> register(@RequestBody Map<String, String> request) {
         String email = request.get("email");
-        String publicKey = request.get("publicKey"); // ECDSA public key
+        String publicKey = request.get("publicKey");
         User user = userRepository.findById(email).orElse(null);
         if (user != null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Email already registered");
 
         user = new User();
         user.setEmail(email);
-        user.setPublicKey(publicKey); // Store ECDSA public key
+        user.setPublicKey(publicKey);
+        // Generate and store AES key for the user
+        SecretKey aesKey = CryptoUtil.generateAESKey();
+        user.setAesKey(Base64.getEncoder().encodeToString(aesKey.getEncoded()));
         userRepository.save(user);
         logger.info("User registered: {}", email);
         return ResponseEntity.ok("Registration successful");
@@ -105,7 +107,7 @@ public class AuthController {
         byte[] challengeBytes = new byte[32];
         secureRandom.nextBytes(challengeBytes);
         String challenge = Base64.getEncoder().encodeToString(challengeBytes);
-        logger.info("Generated challenge for {}: {}", email, challenge); // Debug log
+        logger.info("Generated challenge for {}: {}", email, challenge);
 
         user.setChallenge(challenge);
         userRepository.save(user);
@@ -126,7 +128,7 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
         }
 
-        logger.info("Verifying for {} - Challenge: {}, Signature: {}", email, user.getChallenge(), signature); // Debug log
+        logger.info("Verifying for {} - Challenge: {}, Signature: {}", email, user.getChallenge(), signature);
         if (CryptoUtil.verifyECDSASignature(user.getPublicKey(), user.getChallenge(), signature)) {
             String jwt = JwtUtil.generateToken(email, env.getProperty("jwt.secret"));
             Device device = new Device();
@@ -153,19 +155,18 @@ public class AuthController {
         String token = request.get("token");
 
         String qrToken = UUID.randomUUID().toString();
-        // Generate a 32-byte random challenge
         byte[] challengeBytes = new byte[32];
         secureRandom.nextBytes(challengeBytes);
         String challenge = Base64.getEncoder().encodeToString(challengeBytes);
 
         String payload = qrToken + "|" + challenge + "|" + email;
-        String signedPayload = CryptoUtil.signPayload(payload); // Server signs with its private key
+        String signedPayload = CryptoUtil.signPayload(payload);
 
         QRSession session = new QRSession();
         session.setEmail(email);
         session.setChallenge(challenge);
         session.setSignedPayload(signedPayload);
-        session.setExpiryTime(System.currentTimeMillis() + 2 * 60 * 1000); // 2 minutes expiry
+        session.setExpiryTime(System.currentTimeMillis() + 2 * 60 * 1000);
 
         qrSessionStore.put(qrToken, session);
 
@@ -179,7 +180,6 @@ public class AuthController {
         String qrToken = request.get("qrToken");
         String mobileToken = request.get("mobileToken");
 
-        // Log incoming request for debugging
         logger.info("Received qrToken: {}, mobileToken: {}", qrToken, mobileToken);
 
         QRSession session = qrSessionStore.get(qrToken);
@@ -221,7 +221,7 @@ public class AuthController {
 
         session.setLaptopToken(jwt);
         session.setLaptopDeviceId(laptop.getDeviceId().toString());
-        qrSessionStore.put(qrToken, session); // Update session in map
+        qrSessionStore.put(qrToken, session);
 
         logger.info("QR verification successful for email: {}", email);
         Map<String, String> response = new HashMap<>();
@@ -229,7 +229,7 @@ public class AuthController {
         response.put("deviceId", laptop.getDeviceId().toString());
         return ResponseEntity.ok(response);
     }
-    // Added endpoint for checking email existence
+
     @PostMapping("/check-email")
     public ResponseEntity<Map<String, Boolean>> checkEmail(@RequestBody Map<String, String> request) {
         String email = request.get("email");
@@ -239,7 +239,6 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
-    // Added endpoint for checking QR status
     @GetMapping("/check-qr-status")
     public ResponseEntity<Map<String, String>> checkQRStatus(@RequestParam String qrToken) {
         QRSession session = qrSessionStore.get(qrToken);
@@ -253,18 +252,17 @@ public class AuthController {
             response.put("status", "authenticated");
             response.put("token", session.getLaptopToken());
             response.put("deviceId", session.getLaptopDeviceId());
-            qrSessionStore.remove(qrToken); // Clean up after successful login
+            qrSessionStore.remove(qrToken);
             return ResponseEntity.ok(response);
         }
 
         return ResponseEntity.ok(Collections.singletonMap("status", "pending"));
     }
+
     @GetMapping("/health")
     public ResponseEntity<String> healthCheck() {
         return ResponseEntity.ok("Spring Boot app is running");
     }
-
-
 
     // Note-related endpoints
     @PostMapping("/notes")
@@ -277,9 +275,20 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        note.setUser(user);
-        Note savedNote = noteRepository.save(note);
-        return ResponseEntity.ok(savedNote);
+        try {
+            // Encrypt note content
+            SecretKey aesKey = CryptoUtil.decodeAESKey(user.getAesKey());
+            String encryptedContent = CryptoUtil.encryptAES(note.getContent(), aesKey);
+            note.setContent(encryptedContent);
+            note.setUser(user);
+            Note savedNote = noteRepository.save(note);
+            // Decrypt for response to maintain API compatibility
+            savedNote.setContent(CryptoUtil.decryptAES(savedNote.getContent(), aesKey));
+            return ResponseEntity.ok(savedNote);
+        } catch (Exception e) {
+            logger.error("Failed to encrypt note content: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     @GetMapping("/notes")
@@ -291,8 +300,18 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        List<Note> notes = noteRepository.findByUser(user);
-        return ResponseEntity.ok(notes);
+        try {
+            SecretKey aesKey = CryptoUtil.decodeAESKey(user.getAesKey());
+            List<Note> notes = noteRepository.findByUser(user);
+            // Decrypt content for each note
+            for (Note note : notes) {
+                note.setContent(CryptoUtil.decryptAES(note.getContent(), aesKey));
+            }
+            return ResponseEntity.ok(notes);
+        } catch (Exception e) {
+            logger.error("Failed to decrypt note content: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     @PutMapping("/notes/{id}")
@@ -311,11 +330,20 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
-        note.setTitle(updatedNote.getTitle());
-        note.setContent(updatedNote.getContent());
-        note.setUpdatedAt(System.currentTimeMillis());
-        Note savedNote = noteRepository.save(note);
-        return ResponseEntity.ok(savedNote);
+        try {
+            SecretKey aesKey = CryptoUtil.decodeAESKey(user.getAesKey());
+            // Encrypt updated content
+            note.setTitle(updatedNote.getTitle());
+            note.setContent(CryptoUtil.encryptAES(updatedNote.getContent(), aesKey));
+            note.setUpdatedAt(System.currentTimeMillis());
+            Note savedNote = noteRepository.save(note);
+            // Decrypt for response
+            savedNote.setContent(CryptoUtil.decryptAES(savedNote.getContent(), aesKey));
+            return ResponseEntity.ok(savedNote);
+        } catch (Exception e) {
+            logger.error("Failed to encrypt/decrypt note content: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     @DeleteMapping("/notes/{id}")
@@ -336,6 +364,4 @@ public class AuthController {
         noteRepository.delete(note);
         return ResponseEntity.ok().build();
     }
-
-
 }

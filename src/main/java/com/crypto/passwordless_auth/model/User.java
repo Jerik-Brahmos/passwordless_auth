@@ -1,53 +1,43 @@
+// com.crypto.passwordless_auth.model.User.java
 package com.crypto.passwordless_auth.model;
 
-import jakarta.persistence.Column;
-import lombok.Data;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.OneToMany;
+import jakarta.persistence.*;
 import java.util.List;
 
 @Entity
-@Data
+@Table(name = "users") // Explicit table name to avoid reserved keyword 'user'
 public class User {
     @Id
     private String email;
 
     @Column(columnDefinition = "TEXT")
-    private String publicKey;
-    private String challenge; // Transient, not stored in DB
-    @OneToMany(mappedBy = "user")
-    private List<Device> devices; // List of linked devices
+    private String publicKey; // Use TEXT to handle long Base64-encoded keys
 
-    public String getEmail() {
-        return email;
-    }
+    private String challenge;
 
-    public void setEmail(String email) {
-        this.email = email;
-    }
+    @Column(columnDefinition = "TEXT")
+    private String aesKey; // Store Base64-encoded AES key
 
-    public List<Device> getDevices() {
-        return devices;
-    }
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    private List<Device> devices;
 
-    public void setDevices(List<Device> devices) {
-        this.devices = devices;
-    }
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    private List<Note> notes;
 
-    public String getChallenge() {
-        return challenge;
-    }
+    // Constructors
+    public User() {}
 
-    public void setChallenge(String challenge) {
-        this.challenge = challenge;
-    }
-
-    public String getPublicKey() {
-        return publicKey;
-    }
-
-    public void setPublicKey(String publicKey) {
-        this.publicKey = publicKey;
-    }
+    // Getters and Setters
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+    public String getPublicKey() { return publicKey; }
+    public void setPublicKey(String publicKey) { this.publicKey = publicKey; }
+    public String getChallenge() { return challenge; }
+    public void setChallenge(String challenge) { this.challenge = challenge; }
+    public String getAesKey() { return aesKey; }
+    public void setAesKey(String aesKey) { this.aesKey = aesKey; }
+    public List<Device> getDevices() { return devices; }
+    public void setDevices(List<Device> devices) { this.devices = devices; }
+    public List<Note> getNotes() { return notes; }
+    public void setNotes(List<Note> notes) { this.notes = notes; }
 }
