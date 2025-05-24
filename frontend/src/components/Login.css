@@ -1,0 +1,113 @@
+/* Login.css */
+
+.login-container {
+  background-color: #1a1a1a; /* Very dark gray/black background */
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #ffffff; /* White text for contrast */
+  font-family: Arial, sans-serif;
+  padding: 1rem;
+}
+
+.login-form {
+  background-color: #2d2d2d; /* Slightly lighter dark gray for the content area */
+  padding: 1.5rem;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2); /* Stronger shadow for mobile visibility */
+  text-align: center;
+  width: 100%;
+  max-width: 350px; /* Smaller max-width for mobile */
+}
+
+.login-input {
+  width: 100%;
+  padding: 0.8rem;
+  margin-bottom: 1rem;
+  border: none;
+  border-radius: 5px;
+  background-color: #3d3d3d; /* Darker input background */
+  color: #ffffff; /* White text in input */
+  font-size: 0.9rem;
+  outline: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.login-input::placeholder {
+  color: #a0a0a0; /* Light gray placeholder text */
+}
+
+.login-button {
+  width: 100%;
+  padding: 0.8rem;
+  background-color: #007bff; /* Blue button background */
+  color: #ffffff; /* White text on button */
+  border: none;
+  border-radius: 5px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.login-button:hover {
+  background-color: #0056b3; /* Darker blue on hover */
+}
+
+.login-button:disabled {
+  background-color: #6c757d; /* Gray when disabled */
+  cursor: not-allowed;
+}
+.register-info {
+  margin-top: 1rem;
+  text-align: center;
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.register-link {
+  color: #007bff;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.register-link:hover {
+  color: #0056b3;
+}
+
+@media (max-width: 480px) {
+  .login-form {
+    padding: 1rem;
+    border-radius: 8px;
+    max-width: 90%; /* Even narrower on very small screens */
+  }
+
+  .login-input {
+    padding: 0.6rem;
+    font-size: 0.8rem;
+    margin-bottom: 0.8rem;
+  }
+
+  .login-button {
+    padding: 0.6rem;
+    font-size: 0.9rem;
+  }
+}
+
+@media (min-width: 481px) and (max-width: 768px) {
+  .login-form {
+    max-width: 400px;
+    padding: 1.5rem;
+  }
+
+  .login-input {
+    padding: 0.8rem;
+    font-size: 0.9rem;
+  }
+
+  .login-button {
+    padding: 0.8rem;
+    font-size: 1rem;
+  }
+}

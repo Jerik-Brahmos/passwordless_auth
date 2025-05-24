@@ -1,0 +1,62 @@
+/* ScanQR.css */
+
+.scan-qr-container {
+    background-color: #1a1a1a; /* Very dark gray/black background */
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: #ffffff; /* White text for contrast */
+    font-family: Arial, sans-serif;
+    padding: 1rem;
+  }
+  
+  .scan-qr-title {
+    color: #e0e0e0; /* Light gray for headings */
+    font-size: 1.8rem;
+    margin-bottom: 1.5rem;
+    font-weight: bold;
+  }
+  
+  .qr-reader {
+    width: 100%;
+    max-width: 350px; /* Smaller max-width for mobile */
+    aspect-ratio: 1; /* Maintain square aspect ratio for QR scanning */
+    background-color: #2d2d2d; /* Dark gray background for scanner area */
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2); /* Stronger shadow for mobile visibility */
+    overflow: hidden;
+  }
+  
+  .qr-reader video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  @media (max-width: 480px) {
+    .scan-qr-container {
+      padding: 0.5rem;
+    }
+  
+    .scan-qr-title {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+    }
+  
+    .qr-reader {
+      max-width: 90%;
+      border-radius: 8px;
+    }
+  }
+  
+  @media (min-width: 481px) and (max-width: 768px) {
+    .scan-qr-title {
+      font-size: 1.7rem;
+    }
+  
+    .qr-reader {
+      max-width: 400px;
+    }
+  }

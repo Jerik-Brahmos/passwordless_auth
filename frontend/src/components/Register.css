@@ -1,0 +1,106 @@
+/* Register.css */
+
+.register-container {
+  background-color: #0d0d0d;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem;
+  color: #f5f5f5;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.register-form {
+  background-color: #1a1a1a;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
+  width: 100%;
+  max-width: 360px;
+  text-align: center;
+  transition: transform 0.3s ease;
+}
+
+.register-form:hover {
+  transform: scale(1.01);
+}
+
+.register-title {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.info-text {
+  font-size: 0.95rem;
+  color: #cccccc;
+  margin-bottom: 1.5rem;
+}
+
+.google-button {
+  display: block;
+  margin: 0 auto 1.2rem auto;
+  transition: all 0.3s ease;
+}
+
+.google-button:hover {
+  filter: brightness(1.1);
+}
+
+.status-message {
+  padding: 0.6rem;
+  margin-bottom: 1rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.success {
+  background-color: #1b5e20;
+  color: #a5d6a7;
+}
+
+.error {
+  background-color: #b71c1c;
+  color: #ef9a9a;
+}
+
+.sign-in-text {
+  font-size: 0.85rem;
+  color: #aaa;
+}
+
+.sign-in-link {
+  color: #4fc3f7;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.sign-in-link:hover {
+  text-decoration: underline;
+}
+
+/* Responsive tweaks */
+@media (max-width: 480px) {
+  .register-form {
+    padding: 1.5rem;
+    max-width: 90%;
+  }
+
+  .register-title {
+    font-size: 1.6rem;
+  }
+
+  .info-text {
+    font-size: 0.85rem;
+  }
+
+  .status-message {
+    font-size: 0.75rem;
+  }
+
+  .sign-in-text {
+    font-size: 0.75rem;
+  }
+}

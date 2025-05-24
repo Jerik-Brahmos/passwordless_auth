@@ -1,0 +1,98 @@
+/* MobileLogin.css */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  
+  .mobile-login-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    background: linear-gradient(135deg, #ff6f61, #de4d4d);
+    padding: 20px;
+    font-family: "Arial", sans-serif;
+  }
+  
+  .mobile-login-title {
+    font-size: 2rem;
+    color: #fff;
+    margin-bottom: 30px;
+    text-align: center;
+    animation: fadeIn 1s ease-in-out;
+  }
+  
+  .mobile-form-container {
+    width: 100%;
+    max-width: 350px;
+    padding: 25px;
+    background-color: #fff;
+    border-radius: 12px;
+    box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.15);
+    text-align: center;
+  }
+  
+  .scan-button {
+    width: 100%;
+    padding: 15px;
+    background-color: #ff6f61;
+    color: #fff;
+    font-size: 1.2rem;
+    font-weight: bold;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.3s ease;
+  }
+  
+  .scan-button:hover {
+    background-color: #e65a50;
+    transform: translateY(-3px);
+  }
+  
+  .scan-button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+    transform: none;
+  }
+  
+  .loading {
+    background-color: #ffcc00;
+  }
+  
+  .cancel-button {
+    width: 100%;
+    padding: 10px;
+    margin-top: 10px;
+    background-color: #666;
+    color: #fff;
+    font-size: 1rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  
+  .cancel-button:hover {
+    background-color: #555;
+  }
+  
+  .qr-scanner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .mobile-status-message {
+    margin-top: 15px;
+    font-size: 1rem;
+    color: #333;
+  }
+  
+  @keyframes fadeIn {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+  }
